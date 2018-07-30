@@ -23,9 +23,9 @@ use Data::Dumper;
 use File::Copy;
 use Net::FTP;
 
-my $dir_cdr = '/home/kruk/cdr';				#Путь до cdr-файлов, которые выгружаются средствами РТУ. настройка, через web-интерфейс.
-my $dir_cdr_transformation = '/home/kruk/cdr_new';	#Путь до преобразованных cdr-файлов, которые в итоге будут загружены на FTP.
-my $dir_cdr_old = '/home/kruk/cdr_old';			#Путь до оригинальных файлов cdr, которые были преобразованны ранее. (для истории оставляем).
+my $dir_cdr = '/itmh/data/cdr';				#Путь до cdr-файлов, которые выгружаются средствами РТУ. настройка, через web-интерфейс.
+my $dir_cdr_transformation = '/itmh/data/cdr_new';	#Путь до преобразованных cdr-файлов, которые в итоге будут загружены на FTP.
+my $dir_cdr_old = '/itmh/data/cdr_old';			#Путь до оригинальных файлов cdr, которые были преобразованны ранее. (для истории оставляем).
 my $ftp_server = '172.16.80.149';
 my $ftp_login = 'ftp-user';
 my $ftp_password = 'zxcvbnm';
@@ -81,6 +81,10 @@ foreach my $dir_cdr_file (@dir_cdr_files){
 				}elsif (($array_str_cdr[8] =~ /^172.31.255.1/) || ($array_str_cdr[9] =~ /^172.31.255.1/)){
 					next;
 				}else{
+					my @array_ip_port_a = split (/:/,$array_str_cdr[8],-1);
+					$array_str_cdr[8] = $array_ip_port_a[0];
+					my @array_ip_port_b = split (/:/,$array_str_cdr[9],-1);
+					$array_str_cdr[9] = $array_ip_port_b[0];
 					print FILE_NEW "$array_str_cdr[0],$array_str_cdr[1],$array_str_cdr[2],$array_str_cdr[3],$array_str_cdr[4],$array_str_cdr[5],$hash_pool_number_all{$array_str_cdr[4]},unk,unk,1,$array_str_cdr[6],$hash_redirects{$array_str_cdr[7]},$array_str_cdr[8],$array_str_cdr[9]\n";
 				}
 			}
