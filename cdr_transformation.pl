@@ -22,13 +22,15 @@ use Sys::Hostname;
 use Data::Dumper;
 use File::Copy;
 use Net::FTP;
+use 5.010;
 
+my $dir_cfg = '/itmh/scripts';				#Путь до файла конфигурации (login/pass ftp).
 my $dir_cdr = '/itmh/data/cdr';				#Путь до cdr-файлов, которые выгружаются средствами РТУ. настройка, через web-интерфейс.
 my $dir_cdr_transformation = '/itmh/data/cdr_new';	#Путь до преобразованных cdr-файлов, которые в итоге будут загружены на FTP.
 my $dir_cdr_old = '/itmh/data/cdr_old';			#Путь до оригинальных файлов cdr, которые были преобразованны ранее. (для истории оставляем).
-my $ftp_server = '172.16.80.149';
-my $ftp_login = 'ftp-user';
-my $ftp_password = 'zxcvbnm';
+my $date_directory = strftime "%Y%m", localtime(time);	#Название каталога для CDR, которые были загружены на FTP-server. (ГГГГММ)
+opendir (OLD, "$dir_cdr_old/$date_directory") || mkdir "$dir_cdr_old/$date_directory/", 0744;
+closedir (OLD);
 my %hash_pool_number_all = ();
 my %hash_redirects = (
 			''		=> '0', #(пустое поле - нет переадресации)
@@ -44,22 +46,32 @@ my %hash_redirects = (
 			'out-of-service'=> '10',#(отказ в обслуживании)
 			'away'		=> '11',#
 			);
-my @pool_number_ekb = (
-			'73433790000-73433790999',
-			'73433573000-73433573399',
-			'73433856500-73433856999',
-			'73433857000-73433859999',
-			'73433277000-73433279999',
-			'73432957000-73432957039',
-			'73432957300-73432957399',
-			'73432958200-73432958299'
-			);
-my @pool_number_ntg = ('73435378100-73435378299','73435384400-73435384699','73435219000-73435219999');
-my @pool_number_kur = ('73439540500-73439540999','73439541000-73439541999');
-
-&add_pool_hash(\@pool_number_ekb);
-&add_pool_hash(\@pool_number_ntg);
-&add_pool_hash(\@pool_number_kur);
+my $ftp_server = '';
+my $ftp_login = '';
+my $ftp_password = '';
+open (my $cfg, '<:encoding(UTF-8)', "$dir_cfg/cdr_transformation.cfg") || die "Error opening file: cdr_transformation.cfg $!";
+	while (defined(my $line_cfg = <$cfg>)){
+		chomp ($line_cfg);
+		if ($line_cfg =~ /^(\#|\r?$)/){
+			next;
+		}
+		my @array_cfg = split (/ = /,$line_cfg,-1);
+		given($array_cfg[0]){
+			when('ftp_server'){
+				$ftp_server = $array_cfg[1];
+			}when('ftp_login'){
+				$ftp_login = $array_cfg[1];
+			}when('ftp_password'){
+				$ftp_password = $array_cfg[1];
+			}when($_ =~ /^pool_number_/){
+				my @pool_number = split (/,/,$array_cfg[1],-1);
+				&add_pool_hash(\@pool_number);
+			}default{
+				print "Error_04: Неизвестный параметр $array_cfg[0]!\n";
+			}
+		}
+	}
+close($cfg);
 
 chdir "$dir_cdr" or die "No open $dir_cdr $!";
 my @dir_cdr_files = glob "*.csv";
@@ -68,6 +80,7 @@ my @dir_cdr_files = glob "*.csv";
 foreach my $dir_cdr_file (@dir_cdr_files){
 #	my $new_file_name = "bil_".substr($dir_cdr_file,4,4)."_".substr($dir_cdr_file,8,2)."_".substr($dir_cdr_file,10,2)."_".substr($dir_cdr_file,13,2)."_".substr($dir_cdr_file,15,2)."_".substr($dir_cdr_file,17,2);
 	my $new_file_name = "rtu_".substr($dir_cdr_file,4,15).".csv";
+	my $dir_old_year = substr($dir_cdr_file,4,6);
 	open (FILE, "< $dir_cdr/$dir_cdr_file")|| die "Error opening file: $dir_cdr_file $!";
 	open (FILE_NEW, ">> $dir_cdr_transformation/$new_file_name")|| die "Error opening file: $new_file_name $!";
 		while (my $str = <FILE>) {
@@ -91,7 +104,7 @@ foreach my $dir_cdr_file (@dir_cdr_files){
 		}
 	close(FILE_NEW);
 	close(FILE);
-	`cat $dir_cdr/$dir_cdr_file > $dir_cdr_old/$dir_cdr_file`;
+	`cat $dir_cdr/$dir_cdr_file > $dir_cdr_old/$dir_old_year/$dir_cdr_file`;
 	`rm $dir_cdr/$dir_cdr_file`;
 }
 chdir "$dir_cdr_transformation" or die "No open $dir_cdr_transformation $!";
