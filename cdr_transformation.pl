@@ -4,8 +4,8 @@
 # CDR РТУ содержит поля: cdr_id;connect_time;disconnect_time;elapsed_time;src_in;dst_in;call_id_in_proto;remote_src_sig_address;remote_dst_sig_address;	#
 # В итоговый CDR для CORDIS добавляем 4-е дополнительных параметра:											#
 #	7 Город: (ekb|ntagil|ku|unk)															#
-#	8 Целевой оператор - идентификатор оператора, который осуществляет транзит звонка: unk								#
-#	9 Стык - идентификатор стыка, через который ушел вызов: unk											#
+#	8 Целевой оператор - идентификатор оператора, который осуществляет транзит звонка: local							#
+#	9 Стык - идентификатор стыка, через который ушел вызов: local											#
 #	10 КТЦ - булевое значение определяющее наличие на номере 8-ки по агентской схеме: 1								#
 #																			#
 #	!!!!!!Внимание!!!!!  Для корректного определения города, необходимо добавить в cdr_transformation.cfg все пулы номеров Комтехцентра		#
@@ -98,7 +98,7 @@ foreach my $dir_cdr_file (@dir_cdr_files){
 					$array_str_cdr[8] = $array_ip_port_a[0];
 					my @array_ip_port_b = split (/:/,$array_str_cdr[9],-1);
 					$array_str_cdr[9] = $array_ip_port_b[0];
-					print FILE_NEW "$array_str_cdr[0],$array_str_cdr[1],$array_str_cdr[2],$array_str_cdr[3],$array_str_cdr[4],$array_str_cdr[5],$hash_pool_number_all{$array_str_cdr[4]},unk,unk,1,$array_str_cdr[6],$hash_redirects{$array_str_cdr[7]},$array_str_cdr[8],$array_str_cdr[9]\n";
+					print FILE_NEW "$array_str_cdr[0],$array_str_cdr[1],$array_str_cdr[2],$array_str_cdr[3],$array_str_cdr[4],$array_str_cdr[5],$hash_pool_number_all{$array_str_cdr[4]},local,local,1,$array_str_cdr[6],$hash_redirects{$array_str_cdr[7]},$array_str_cdr[8],$array_str_cdr[9]\n";
 				}
 			}
 		}
