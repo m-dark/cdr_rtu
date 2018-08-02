@@ -8,7 +8,8 @@
 #	9 Стык - идентификатор стыка, через который ушел вызов: local											#
 #	10 КТЦ - булевое значение определяющее наличие на номере 8-ки по агентской схеме: 1								#
 #																			#
-#	!!!!!!Внимание!!!!!  Для корректного определения города, необходимо добавить в cdr_transformation.cfg все пулы номеров Комтехцентра		#
+#	Внимание! Для определения города, необходимо добавить в cdr_transformation.cfg длину городского номера "length_of_city_number" 			#
+#	пример: length_of_city_number: ekb = 7 и только после этого параметра все пулы номеров Комтехцентра в отдельный "pool_number"			#
 #########################################################################################################################################################
 
 use strict;
@@ -55,7 +56,9 @@ open (my $cfg, '<:encoding(UTF-8)', "$dir_cfg/cdr_transformation.cfg") || die "E
 		if ($line_cfg =~ /^(\#|\r?$)/){
 			next;
 		}
-		my @array_cfg = split (/ = /,$line_cfg,-1);
+		$line_cfg =~ s/ //g;
+		$line_cfg =~ s/\t//g;
+		my @array_cfg = split (/:/,$line_cfg,-1);
 		given($array_cfg[0]){
 			when('ftp_server'){
 				$ftp_server = $array_cfg[1];
@@ -63,9 +66,20 @@ open (my $cfg, '<:encoding(UTF-8)', "$dir_cfg/cdr_transformation.cfg") || die "E
 				$ftp_login = $array_cfg[1];
 			}when('ftp_password'){
 				$ftp_password = $array_cfg[1];
-			}when($_ =~ /^pool_number_/){
-				my @pool_number = split (/,/,$array_cfg[1],-1);
-				&add_pool_hash(\@pool_number);
+			}when('pool_number'){
+				if ($array_cfg[1] =~ /|/){
+					my @settings_town = split (/\|/,$array_cfg[1],-1);
+					my @pool_number = ();
+					if ($settings_town[2] =~ /,/){
+						@pool_number = split (/,/,$settings_town[2],-1);
+						&add_pool_hash($settings_town[0], $settings_town[1], \@pool_number);
+					}else{
+						push (@pool_number, $settings_town[2]);
+						&add_pool_hash($settings_town[0], $settings_town[1], \@pool_number);
+					}
+				}else{
+					print "Error_05: Параметры в строке $line_cfg должны быть прописаны через \"|\"";
+				}
 			}default{
 				print "Error_04: Неизвестный параметр $array_cfg[0]!\n";
 			}
@@ -127,29 +141,26 @@ foreach my $cdr_file_put (@cdr_files_put){
 $ftp->quit();
 
 sub add_pool_hash {
+	my $town = shift;
+	my $length_number = shift;
 	my ($array_pool_number) = @_;
+	my $digit_in_number_start = 11-$length_number;
+
 	for my $pool (@$array_pool_number) {
 		if ($pool =~ /-/){
 			my @array_number_pool = split(/-/,$pool);
-			if ($array_number_pool[0] =~ /^7343[23]\d{6}$/){
-				&add_number_hash($array_number_pool[0], $array_number_pool[1], 'ekb');
-				&add_number_hash(substr($array_number_pool[0],4,7), substr($array_number_pool[1],4,7), 'ekb');
-			}elsif($array_number_pool[0] =~ /^73435\d{6}$/){
-				&add_number_hash($array_number_pool[0], $array_number_pool[1], 'ntagil');
-				&add_number_hash(substr($array_number_pool[0],5,6), substr($array_number_pool[1],5,6), 'ntagil');
-			}elsif($array_number_pool[0] =~ /^73439\d{6}$/){
-				&add_number_hash($array_number_pool[0], $array_number_pool[1], 'ku');
-				&add_number_hash(substr($array_number_pool[0],5,6), substr($array_number_pool[1],5,6), 'ku');
+			if ($array_number_pool[0] =~ /^7\d{10}$/){
+				&add_number_hash($town, $array_number_pool[0], $array_number_pool[1]);
+				&add_number_hash($town, substr($array_number_pool[0],$digit_in_number_start,$length_number), substr($array_number_pool[1],$digit_in_number_start,$length_number));
 			}else{
 				print "Error_01\n";
 			}
 		}else{
-			if ($pool =~ /^7343[23]\d{6}$/){
-				$hash_pool_number_all{$pool} = 'ekb';
-			}elsif ($pool =~ /^73435\d{6}$/){
-				$hash_pool_number_all{$pool} = 'ntagil';
-			}elsif ($pool =~ /^73439\d{6}$/){
-				$hash_pool_number_all{$pool} = 'ku';
+			if ($pool =~ /^7\d{10}$/){
+				$hash_pool_number_all{$pool} = $town;
+				$pool = substr($pool,$digit_in_number_start,$length_number);
+				$hash_pool_number_all{$pool} = $town;
+				
 			}else{
 				print "Error_02\n";
 				$hash_pool_number_all{$pool} = 'unk';
@@ -159,9 +170,9 @@ sub add_pool_hash {
 }
 
 sub add_number_hash {
+	my $town	 = shift;
 	my $number_start = shift;
 	my $number_end   = shift;
-	my $town 	 = shift;
 	
 	while ($number_start <= $number_end){
 		$hash_pool_number_all{$number_start} = $town;
