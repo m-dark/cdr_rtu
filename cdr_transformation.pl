@@ -8,8 +8,6 @@
 #	9 Стык - идентификатор стыка, через который ушел вызов: local											#
 #	10 КТЦ - булевое значение определяющее наличие на номере 8-ки по агентской схеме: 1								#
 #																			#
-#	Внимание! Для определения города, необходимо добавить в cdr_transformation.cfg длину городского номера "length_of_city_number" 			#
-#	пример: length_of_city_number: ekb = 7 и только после этого параметра все пулы номеров Комтехцентра в отдельный "pool_number"			#
 #########################################################################################################################################################
 
 use strict;
@@ -25,11 +23,13 @@ use File::Copy;
 use Net::FTP;
 use 5.010;
 
-my $dir_cfg = '/itmh/scripts';				#Путь до файла конфигурации (login/pass ftp).
-my $dir_cdr = '/itmh/data/cdr';				#Путь до cdr-файлов, которые выгружаются средствами РТУ. настройка, через web-интерфейс.
-my $dir_cdr_transformation = '/itmh/data/cdr_new';	#Путь до преобразованных cdr-файлов, которые в итоге будут загружены на FTP.
-my $dir_cdr_old = '/itmh/data/cdr_old';			#Путь до оригинальных файлов cdr, которые были преобразованны ранее. (для истории оставляем).
-my $date_directory = strftime "%Y%m", localtime(time);	#Название каталога для CDR, которые были загружены на FTP-server. (ГГГГММ)
+my $dir_cfg = '/itmh/scripts';						#Путь до файла конфигурации (login/pass ftp).
+my $dir_cdr = '/itmh/data/cdr';						#Путь до cdr-файлов, которые выгружаются средствами РТУ. настройка, через web-интерфейс.
+my $dir_cdr_transformation = '/itmh/data/cdr_new';			#Путь до преобразованных cdr-файлов, которые в итоге будут загружены на FTP.
+my $dir_cdr_old = '/itmh/data/cdr_old';					#Путь до оригинальных файлов cdr, которые были преобразованны ранее. (для истории оставляем).
+my $date_directory = strftime "%Y%m", localtime(time);			#Название каталога для CDR, которые были загружены на FTP-server. (ГГГГММ)
+my $date_script_start = strftime "%Y-%m-%d %H:%M:%S", localtime(time);	#Время запуска скрипта для лога bil_rtu_cdr.log
+my $error_log = '';
 opendir (OLD, "$dir_cdr_old/$date_directory") || mkdir "$dir_cdr_old/$date_directory/", 0744;
 closedir (OLD);
 my %hash_pool_number_all = ();
@@ -67,7 +67,7 @@ open (my $cfg, '<:encoding(UTF-8)', "$dir_cfg/cdr_transformation.cfg") || die "E
 			}when('ftp_password'){
 				$ftp_password = $array_cfg[1];
 			}when('pool_number'){
-				if ($array_cfg[1] =~ /|/){
+				if ($array_cfg[1] =~ /\|/){
 					my @settings_town = split (/\|/,$array_cfg[1],-1);
 					my @pool_number = ();
 					if ($settings_town[2] =~ /,/){
@@ -78,10 +78,12 @@ open (my $cfg, '<:encoding(UTF-8)', "$dir_cfg/cdr_transformation.cfg") || die "E
 						&add_pool_hash($settings_town[0], $settings_town[1], \@pool_number);
 					}
 				}else{
-					print "Error_05: Параметры в строке $line_cfg должны быть прописаны через \"|\"";
+					$error_log = "Error_05: Параметры в строке $line_cfg должны быть прописаны через \"|\"";
+					&cdr_log ($error_log);
 				}
 			}default{
-				print "Error_04: Неизвестный параметр $array_cfg[0]!\n";
+				$error_log = "Error_04: Неизвестный параметр $array_cfg[0]";
+				&cdr_log ($error_log);
 			}
 		}
 	}
@@ -93,7 +95,7 @@ my @dir_cdr_files = glob "*.csv";
 
 foreach my $dir_cdr_file (@dir_cdr_files){
 #	my $new_file_name = "bil_".substr($dir_cdr_file,4,4)."_".substr($dir_cdr_file,8,2)."_".substr($dir_cdr_file,10,2)."_".substr($dir_cdr_file,13,2)."_".substr($dir_cdr_file,15,2)."_".substr($dir_cdr_file,17,2);
-	my $new_file_name = "rtu_".substr($dir_cdr_file,4,15).".csv";
+	my $new_file_name = "bil_rtu_".substr($dir_cdr_file,4,15);
 	my $dir_old_year = substr($dir_cdr_file,4,6);
 	open (FILE, "< $dir_cdr/$dir_cdr_file")|| die "Error opening file: $dir_cdr_file $!";
 	open (FILE_NEW, ">> $dir_cdr_transformation/$new_file_name")|| die "Error opening file: $new_file_name $!";
@@ -122,10 +124,10 @@ foreach my $dir_cdr_file (@dir_cdr_files){
 	`rm $dir_cdr/$dir_cdr_file`;
 }
 chdir "$dir_cdr_transformation" or die "No open $dir_cdr_transformation $!";
-my @cdr_files_put = glob "*.csv";
+my @cdr_files_put = glob "*";
 
-my $ftp = Net::FTP->new("$ftp_server", Timeout => 30, Debug => 0) || die "Can't connect to ftp server $ftp_server\n";
-$ftp->login("$ftp_login", "$ftp_password") || die "Can't login to ftp server.\n";
+my $ftp = Net::FTP->new("$ftp_server", Timeout => 30, Debug => 0) || (($error_log = "Error_07: Can\'t connect to ftp-server $ftp_server") && (&cdr_log ($error_log)) && (die "Can't connect to ftp-server $ftp_server\n"));
+$ftp->login("$ftp_login", "$ftp_password") || (($error_log = "Error_08: Can\'t login to ftp-server $ftp_server") && (&cdr_log ($error_log)) && (die "Can't login to ftp-server $ftp_server\n"));
 #$ftp->cwd("переход в директорию") || die "Path $cfg_remote_path not found on ftp server.\n";
 $ftp->binary();
 foreach my $cdr_file_put (@cdr_files_put){
@@ -135,7 +137,8 @@ foreach my $cdr_file_put (@cdr_files_put){
 	if($file_size == $ftp_file_size){
 		`rm $dir_cdr_transformation/$cdr_file_put`;
 	}else{
-		print "Error_03\n";
+		$error_log = "Error_03: На FTP-сервере $ftp_server у файла $cdr_file_put не верный размер";
+		&cdr_log ($error_log);
 	}
 }
 $ftp->quit();
@@ -149,11 +152,17 @@ sub add_pool_hash {
 	for my $pool (@$array_pool_number) {
 		if ($pool =~ /-/){
 			my @array_number_pool = split(/-/,$pool);
-			if ($array_number_pool[0] =~ /^7\d{10}$/){
-				&add_number_hash($town, $array_number_pool[0], $array_number_pool[1]);
-				&add_number_hash($town, substr($array_number_pool[0],$digit_in_number_start,$length_number), substr($array_number_pool[1],$digit_in_number_start,$length_number));
+			if (($array_number_pool[0] =~ /^7\d{10}$/) && ($array_number_pool[1] =~ /^7\d{10}$/)){
+				if ($array_number_pool[0] < $array_number_pool[1]){
+					&add_number_hash($town, $array_number_pool[0], $array_number_pool[1]);
+					&add_number_hash($town, substr($array_number_pool[0],$digit_in_number_start,$length_number), substr($array_number_pool[1],$digit_in_number_start,$length_number));
+				}else{
+					$error_log = "Error_06: В пуле номеров \"$array_number_pool[0]-$array_number_pool[1]\" $array_number_pool[0] > $array_number_pool[1]";
+					&cdr_log ($error_log);
+				}
 			}else{
-				print "Error_01\n";
+				$error_log = "Error_01: Пул номеров $array_number_pool[0]-$array_number_pool[1] не соответствует шаблону 7xxxxxxxxxx-7xxxxxxxxxx";
+				&cdr_log ($error_log);
 			}
 		}else{
 			if ($pool =~ /^7\d{10}$/){
@@ -162,7 +171,8 @@ sub add_pool_hash {
 				$hash_pool_number_all{$pool} = $town;
 				
 			}else{
-				print "Error_02\n";
+				$error_log = "Error_02: Номер $pool не соответствует шаблону 7xxxxxxxxxx";
+				&cdr_log ($error_log);
 				$hash_pool_number_all{$pool} = 'unk';
 			}
 		}
@@ -178,4 +188,13 @@ sub add_number_hash {
 		$hash_pool_number_all{$number_start} = $town;
 		$number_start++;
 	}
+}
+
+sub cdr_log {
+	my $error = shift;
+	print "$error\n";
+	open (LOG, ">> $dir_cfg/bil_rtu_cdr.log")|| die "Error opening file: bil_rtu_cdr.log $!";
+		print LOG "$date_script_start $error\n";
+	close (LOG);
+	$error = '';
 }
