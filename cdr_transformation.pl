@@ -95,7 +95,7 @@ my @dir_cdr_files = glob "*.csv";
 
 foreach my $dir_cdr_file (@dir_cdr_files){
 #	my $new_file_name = "bil_".substr($dir_cdr_file,4,4)."_".substr($dir_cdr_file,8,2)."_".substr($dir_cdr_file,10,2)."_".substr($dir_cdr_file,13,2)."_".substr($dir_cdr_file,15,2)."_".substr($dir_cdr_file,17,2);
-	my $new_file_name = "bil_rtu_".substr($dir_cdr_file,4,15);
+	my $new_file_name = "gen_rtu_".substr($dir_cdr_file,4,15);
 	my $dir_old_year = substr($dir_cdr_file,4,6);
 	open (FILE, "< $dir_cdr/$dir_cdr_file")|| die "Error opening file: $dir_cdr_file $!";
 	open (FILE_NEW, ">> $dir_cdr_transformation/$new_file_name")|| die "Error opening file: $new_file_name $!";
@@ -136,6 +136,8 @@ foreach my $cdr_file_put (@cdr_files_put){
 	$ftp->put("$dir_cdr_transformation/$cdr_file_put", "$cdr_file_put");
 	my $ftp_file_size = $ftp->size($cdr_file_put);
 	if($file_size == $ftp_file_size){
+		my $new_file_ftp = "bil_".substr($cdr_file_put,4,19);
+		$ftp->rename("$cdr_file_put","$new_file_ftp");
 		`rm $dir_cdr_transformation/$cdr_file_put`;
 	}else{
 		$error_log = "Error_03: На FTP-сервере $ftp_server у файла $cdr_file_put не верный размер";
