@@ -110,6 +110,7 @@ foreach my $dir_cdr_file (@dir_cdr_files){
 				}elsif (($array_str_cdr[8] =~ /^172.31.255.1/) || ($array_str_cdr[9] =~ /^172.31.255.1/)){
 					next;
 				}else{
+					$array_str_cdr[0] = substr($array_str_cdr[0],6,2).substr($array_str_cdr[0],9,9);
 					my @array_ip_port_a = split (/:/,$array_str_cdr[8],-1);
 					$array_str_cdr[8] = $array_ip_port_a[0];
 					my @array_ip_port_b = split (/:/,$array_str_cdr[9],-1);
