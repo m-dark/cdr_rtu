@@ -29,6 +29,12 @@ my $new_end = 0;
 my %hash_number_pools = ();
 my %hash_number_pools_new = ();
 my %hash_prefix = ();
+my $level_of_detail = 3;						#уровень детальности регулярного выражения(рекомендованные значения: 1..4)
+my $regular = 9;
+for(my $r = 1; $r < $level_of_detail; $r++){
+	$regular = $regular.0;
+}
+print "$regular\n";
 opendir (CD, "$history_dir") || mkdir "$history_dir", 0744;
 closedir (CD);
 opendir (HIS, "$log_dir") || mkdir "$log_dir", 0744;
@@ -91,11 +97,30 @@ close($file_pools);
 &diff_file("$dir", "$tmp_dir", 'pools.cfg');
 
 open (my $file_out, '>>:encoding(UTF-8)', "$tmp_dir/${date_time_file}_prefix.cfg") || die "Error opening file: ${date_time_file}_prefix.cfg $!";
+open (my $file_regular, '>>:encoding(UTF-8)', "$tmp_dir/${date_time_file}_regular.cfg") || die "Error opening file: ${date_time_file}_regular.cfg $!";
+	print $file_regular "\^8".$regular."\(";
+	my $delimiter = 0;
 	foreach my $key_prefix (sort keys %hash_prefix){
 		print $file_out "$key_prefix\n";
+		if(substr($key_prefix,0,$level_of_detail) == $regular){
+			if($delimiter == 0){
+				print $file_regular substr($key_prefix,$level_of_detail);
+				$delimiter = 1;
+			}else{
+				print $file_regular "|".substr($key_prefix,$level_of_detail);
+			}
+		}else{
+			$regular = substr($key_prefix,0,$level_of_detail);
+			print $file_regular ")\.\*\n";
+			print $file_regular "\^8".$regular."\(".substr($key_prefix,$level_of_detail);
+		}
 	}
+	print $file_regular ")\n";
 close($file_out);
+close ($file_regular);
+
 &diff_file("$dir", "$tmp_dir", 'prefix.cfg');
+&diff_file("$dir", "$tmp_dir", 'regular.cfg');
 &log_file ("Stop");
 
 sub mask_pool{
