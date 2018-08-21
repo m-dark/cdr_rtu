@@ -18,17 +18,18 @@ binmode(STDOUT,':utf8');
 my $dir = '/itmh/scripts';
 my $tmp_dir = '/tmp';
 my $history_dir = "$dir/history";
-my $log_dir = "/itmh/log/DEF_sverdl";
+my $log_dir = '/itmh/log/DEF_sverdl';
 my $date_directory = strftime "%Y%m", localtime(time);			#Имя каталога для файлов .diff
 my $date_script_log = strftime "%Y-%m-%d %H:%M:%S", localtime(time);	#Время запуска скрипта для лога .log
 my $date_time_file = strftime "%Y-%m-%d_%H%M%S", localtime(time);	#Переменная хранит в себе дату и время запуска скрипта, для понимания, когда вносились изменения.
-my $url = "https://rossvyaz.gov.ru/docs/articles/DEF-9x.html";
+my $url = 'https://rossvyaz.gov.ru/docs/articles/DEF-9x.html';
 my $file = 'DEF-9x.html';
 my $new_start = 0;
 my $new_end = 0;
 my %hash_number_pools = ();
 my %hash_number_pools_new = ();
 my %hash_prefix = ();
+my %hash_regular_rtu = ();
 my $level_of_detail = 3;						#уровень детальности регулярного выражения(рекомендованные значения: 1..4)
 my $regular = 9;
 for(my $r = 1; $r < $level_of_detail; $r++){
@@ -94,11 +95,11 @@ foreach my $key_new (sort keys %hash_number_pools_new){
 	&mask_pool($key_new, $hash_number_pools_new{$key_new});
 }
 close($file_pools);
-&diff_file("$dir", "$tmp_dir", 'pools.cfg');
+&diff_file("$history_dir", "$tmp_dir", 'pools.cfg');
 
 open (my $file_out, '>>:encoding(UTF-8)', "$tmp_dir/${date_time_file}_prefix.cfg") || die "Error opening file: ${date_time_file}_prefix.cfg $!";
 open (my $file_regular, '>>:encoding(UTF-8)', "$tmp_dir/${date_time_file}_regular.cfg") || die "Error opening file: ${date_time_file}_regular.cfg $!";
-	print $file_regular "\^8".$regular."\(";
+	print $file_regular "8".$regular."\(";
 	my $delimiter = 0;
 	foreach my $key_prefix (sort keys %hash_prefix){
 		print $file_out "$key_prefix\n";
@@ -111,16 +112,16 @@ open (my $file_regular, '>>:encoding(UTF-8)', "$tmp_dir/${date_time_file}_regula
 			}
 		}else{
 			$regular = substr($key_prefix,0,$level_of_detail);
-			print $file_regular ")\.\*\n";
-			print $file_regular "\^8".$regular."\(".substr($key_prefix,$level_of_detail);
+			print $file_regular ")\n";
+			print $file_regular "8".$regular."\(".substr($key_prefix,$level_of_detail);
 		}
 	}
 	print $file_regular ")\n";
 close($file_out);
 close ($file_regular);
 
-&diff_file("$dir", "$tmp_dir", 'prefix.cfg');
-&diff_file("$dir", "$tmp_dir", 'regular.cfg');
+&diff_file("$history_dir", "$tmp_dir", 'prefix.cfg');
+&diff_file("$history_dir", "$tmp_dir", 'regular.cfg');
 &log_file ("Stop");
 
 sub mask_pool{
